@@ -3,6 +3,9 @@
 import json
 import re
 
+DEFAULT_SOCKS_PORT = 10808
+
+
 def read_env_file(filename):
     """Read the .env file and return its content."""
     with open(filename, 'r') as file:
@@ -12,11 +15,13 @@ def extract_values(env_content):
     """Extract PROXY_LINK and WG_PORT from the .env content."""
     proxy_link_match = re.search(r'PROXY_LINK=(vless://[^\n]+)', env_content)
     wg_port_match = re.search(r'WG_PORT=(\d+)', env_content)
+    socks_port_match = re.search(r'SOCKS_PORT=(\d+)', env_content)
 
-    if not proxy_link_match or not wg_port_match:
-        raise ValueError("Required environment variables not found")
-
-    return proxy_link_match.group(1), wg_port_match.group(1)
+    if not proxy_link_match:
+        raise ValueError("PROXY_LINK not found")
+    if not wg_port_match:
+        raise ValueError("WG_PORT not found")
+    return proxy_link_match.group(1), int(wg_port_match.group(1)), int(socks_port_match.group(1)) or DEFAULT_SOCKS_PORT
 
 def parse_proxy_link(proxy_link):
     """Parse the PROXY_LINK to extract details."""
@@ -31,12 +36,12 @@ def parse_proxy_link(proxy_link):
     return {
         "client_uuid": proxy_match.group('client_uuid'),
         "host_server": proxy_match.group('host_server'),
-        "host_port": proxy_match.group('host_port'),
+        "host_port": int(proxy_match.group('host_port')),
         "public_key": proxy_match.group('public_key'),
         "sni_server": proxy_match.group('sni_server')
     }
 
-def generate_config(proxy_details, wg_port):
+def generate_config(proxy_details, wg_port, socks_port):
     """Generate the configuration dictionary."""
     return {
         "log": {
@@ -45,7 +50,7 @@ def generate_config(proxy_details, wg_port):
         "inbounds": [
             {
                 "listen": "127.0.0.1",
-                "port": 10808,
+                "port": socks_port,
                 "protocol": "socks",
                 "settings": {
                     "udp": True
@@ -63,11 +68,11 @@ def generate_config(proxy_details, wg_port):
             {
                 "listen": "127.0.0.1",
                 "tag": "wireguard",
-                "port": int(wg_port),
+                "port": wg_port,
                 "protocol": "dokodemo-door",
                 "settings": {
                     "address": proxy_details["host_server"],
-                    "port": int(wg_port),
+                    "port": wg_port,
                     "network": "udp"
                 }
             }
@@ -79,7 +84,7 @@ def generate_config(proxy_details, wg_port):
                     "vnext": [
                         {
                             "address": proxy_details["host_server"],
-                            "port": int(proxy_details["host_port"]),
+                            "port": proxy_details["host_port"],
                             "users": [
                                 {
                                     "id": proxy_details["client_uuid"],
@@ -113,9 +118,9 @@ def write_config_to_file(config, filename):
 
 def main():
     env_content = read_env_file('.env')
-    proxy_link, wg_port = extract_values(env_content)
+    proxy_link, wg_port, socks_port = extract_values(env_content)
     proxy_details = parse_proxy_link(proxy_link)
-    config = generate_config(proxy_details, wg_port)
+    config = generate_config(proxy_details, wg_port, socks_port)
     write_config_to_file(config, 'config_client.json')
     print("config_client.json has been generated.")
 
