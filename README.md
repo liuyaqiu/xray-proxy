@@ -21,3 +21,7 @@ You could download the xray binary from [xray release](https://github.com/XTLS/X
 
 Please confirm that the `{wireguard_port}` is equal to your wireguard client config.
 
+The wireguard client config `AllowedIps` should be calculated from `https://www.procustodibus.com/blog/2021/03/wireguard-allowedips-calculator/`
+
+Please input the `{proxy_server_ip}` inside the `Disallowed IPs`.
+
